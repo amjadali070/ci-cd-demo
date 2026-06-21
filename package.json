@@ -1,0 +1,13 @@
+{
+  "name": "ci-cd-demo",
+  "version": "1.0.0",
+  "description": "Simple demo project for a CI/CD and QA session: code, build, test, deploy, monitor",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

@@ -1,0 +1,74 @@
+name: CI/CD Pipeline
+
+# This pipeline runs automatically on every push or pull request to main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ============================================================
+  # STAGE 1 + 2: BUILD and TEST
+  # ============================================================
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      # Get the latest code from the repo.
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up the Node.js environment.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # BUILD stage: install everything the project needs.
+      - name: Install dependencies
+        run: npm install
+
+      # TEST stage (the QA gate): if any test fails, the pipeline stops here
+      # and nothing below runs. Broken code cannot move forward.
+      - name: Run tests
+        run: npm test
+
+  # ============================================================
+  # STAGE 3: DEPLOY
+  # Runs only after build-and-test passes, and only on a push to main.
+  # ============================================================
+  deploy:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Render
+        run: |
+          if [ -z "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+            echo "No deploy hook set yet, so skipping the deploy step."
+            echo "Add a RENDER_DEPLOY_HOOK_URL secret to turn on automatic deployment."
+            exit 0
+          fi
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          echo "Deploy triggered on Render."
+
+  # ============================================================
+  # STAGE 4: MONITOR
+  # After deploying, check the live /health endpoint to confirm the app is up.
+  # ============================================================
+  monitor:
+    needs: deploy
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the live health endpoint
+        run: |
+          if [ -z "${{ secrets.SERVICE_URL }}" ]; then
+            echo "No SERVICE_URL set yet, so skipping the live health check."
+            echo "Add a SERVICE_URL secret (your Render URL) to turn on monitoring."
+            exit 0
+          fi
+          echo "Waiting a moment for the new version to go live..."
+          sleep 30
+          curl -f "${{ secrets.SERVICE_URL }}/health"
+          echo "Health check passed. The app is live."
