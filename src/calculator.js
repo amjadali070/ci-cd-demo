@@ -18,5 +18,5 @@ function divide(a, b) {
   }
   return a / b;
 }
-
+//checking pipeline
 module.exports = { add, subtract, multiply, divide };
